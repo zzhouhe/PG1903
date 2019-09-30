@@ -1,0 +1,11 @@
+TARGETNAME=PG1903
+TARGETTYPE=DRIVER
+
+INCLUDES= .; \
+
+SOURCES=entry.c \
+        scan.c
+
+
+AMD64_SOURCES=amd64\x64asm.asm
+
