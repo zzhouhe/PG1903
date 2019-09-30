@@ -6,7 +6,7 @@ Based on setting context pages NX method.
 
 # References
 
-shark, https://github.com/9176324/Shark
+Shark, https://github.com/9176324/Shark
 
 DisableWin10PatchguardPoc, https://github.com/killvxk/DisableWin10PatchguardPoc
 
