@@ -2,7 +2,7 @@
 #include "common.h"
 #include "scan.h"
 
-ULONG64 g_NT_BASE = 0xFFFFF8014a819000;
+ULONG64 g_NT_BASE = 0xFFFFF8017a0b8000;
 ULONG64 g_PTE_BASE;
 ULONG64 g_PDE_BASE;
 ULONG64 g_PPE_BASE;
@@ -57,7 +57,50 @@ void MemCpyEbd(ULONG64 des, ULONG64 src, ULONG64 size)
 
 }
 
+/*
+POOLCODE:FFFFF80714224079 48 8B 6C 24 58                          mov     rbp, [rsp+48h+arg_8]
+POOLCODE:FFFFF8071422407E 48 8B C3                                mov     rax, rbx
+POOLCODE:FFFFF80714224081 48 8B 5C 24 50                          mov     rbx, [rsp+48h+arg_0]
+POOLCODE:FFFFF80714224086 48 8B 74 24 60                          mov     rsi, [rsp+48h+arg_10]
+POOLCODE:FFFFF8071422408B 48 83 C4 30                             add     rsp, 30h
+POOLCODE:FFFFF8071422408F 41 5F                                   pop     r15
+POOLCODE:FFFFF80714224091 41 5E                                   pop     r14
+*/
+void hookExAllocatePoolWithTag()
+{
+    *(PUSHORT)(g_NT_BASE + 0x36A079) = 0xb848;
+    *(PULONG64)(g_NT_BASE + 0x36A07b) = (ULONG64)Asm_hook_exAllocate_entry;
+    *(PUSHORT)(g_NT_BASE + 0x36A07b + 8) = 0xc350;
+}
 
+void hookMmAllocateIndependentPages()
+{
+    *(PUCHAR)(g_NT_BASE + 0xFFFFF80713FBD450 - 0xFFFFF80713EBA000) = 0x50;
+    *(PUSHORT)(g_NT_BASE + 0xFFFFF80713FBD450 - 0xFFFFF80713EBA000 + 1) = 0xb848;
+    *(PULONG64)(g_NT_BASE + 0xFFFFF80713FBD450 - 0xFFFFF80713EBA000 + 3) = (ULONG64)Asm_hook_MmAllocateIndependentPages;
+    *(PUSHORT)(g_NT_BASE + 0xFFFFF80713FBD450 - 0xFFFFF80713EBA000 + 11) = 0xc350;
+}
+
+void hookMmSetPageProtection(){
+    *(PUCHAR)(g_NT_BASE + 0xFFFFF80713FE4740 - 0xFFFFF80713EBA000) = 0x50;
+    *(PUSHORT)(g_NT_BASE + 0xFFFFF80713FE4740 - 0xFFFFF80713EBA000 + 1) = 0xb848;
+    *(PULONG64)(g_NT_BASE + 0xFFFFF80713FE4740 - 0xFFFFF80713EBA000 + 3) = (ULONG64)Asm_hook_MmAllocateIndependentPages;
+    *(PUSHORT)(g_NT_BASE + 0xFFFFF80713FE4740 - 0xFFFFF80713EBA000 + 11) = 0xc350;
+}
+
+void static_context_hook()
+{
+    ULONG64 g_ctx;
+    *(PUCHAR)(g_NT_BASE + 0x1A4629) = 0x90; //if ccb_twin
+    *(PULONG)(g_NT_BASE + 0x1A462a) = 0x90909090;
+    *(PUSHORT)(g_NT_BASE + 0x1A47E5) = 0xe990; //ccb
+
+    g_ctx = *(PULONG64)(g_NT_BASE + 0x56F348); //g_ctx
+    *(PULONG64)g_ctx = -1;
+    *(PULONG64)(g_NT_BASE + 0x56F348) = 0;
+
+    *(PUCHAR)(g_NT_BASE + 0xFFFFF80713FBC3A0 - 0xFFFFF80713EBA000) = 0xc3;//KiDispatchCallout
+}
 
 ULONG64 DebugData[0x10] = {
     0x2C0C6AE7D1F94A9F,
@@ -88,6 +131,10 @@ NTSTATUS
     EnumSysRegions();
     ScanBigPool();
     Asm_WriteProtectDisable();
+    static_context_hook();
+    hookExAllocatePoolWithTag();
+    hookMmAllocateIndependentPages();
+    hookMmSetPageProtection();
     hookPageFault();
     hookMemCpy();   //seems this can touch off the PG quickly
     Asm_WriteProtectEnable();

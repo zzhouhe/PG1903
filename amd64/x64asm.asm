@@ -6,7 +6,7 @@ EXTERN DebugData: ptr qword
 EXTERN g_PTE_BASE: qword
 EXTERN g_PDE_BASE: qword
 
-NT_BASE equ 0FFFFF8014a819000h
+NT_BASE equ 0FFFFF8017a0b8000h
 
 .data
 
@@ -126,5 +126,133 @@ Asm_hook_memcpy_entry       Proc
         ret
 
 Asm_hook_memcpy_entry       Endp
+
+Asm_hook_exAllocate_entry	Proc
+        test edi, edi
+        jnz @ret
+        cmp rsi, 8000h
+        jb @ret
+
+        mov rcx, rbx
+        mov rax, 0ffffffffffffh
+        and rcx, rax
+        shr rcx, 21
+        shl rcx, 3
+        mov rax, g_PDE_BASE
+        add rax, rcx
+        mov rcx, rax        ;ppde
+        mov rax, [rcx]       ;pde
+        test rax, 80h
+        jnz @ret
+
+            mov rcx, rbx
+            mov rax, 0ffffffffffffh
+            and rcx, rax
+            shr rcx, 12
+            shl rcx, 3
+            mov rax, g_PTE_BASE
+            add rax, rcx
+            mov rcx, rax        ;ppte
+                   push rcx
+                   mov rax, [rcx]       ;pte
+                   mov rcx, 08000000000000000h
+                   or  rax, rcx
+                   pop rcx
+                   mov [rcx], rax
+
+@ret:
+        mov     rbp, [rsp+58h]
+        mov     rax, rbx
+        mov     rbx, [rsp+50h]
+        mov     rsi, [rsp+60h]
+        add     rsp, 30h
+        pop     r15
+        pop     r14
+        pop     rdi
+        ret
+Asm_hook_exAllocate_entry 	Endp
+
+Asm_hook_MmAllocateIndependentPages      Proc
+        mov rax, [rsp+8]
+        pop rax
+        sub rsp, 28h
+
+        cmp rcx, 8000h
+        jb  @r
+        xor r9d, r9d
+        xor r8d, r8d
+        call @to
+;-------------------------------
+        push rax
+        push rcx
+
+        mov rcx, rax
+        mov rax, 0ffffffffffffh
+        and rcx, rax
+        shr rcx, 21
+        shl rcx, 3
+        mov rax, g_PDE_BASE
+        add rax, rcx
+        mov rcx, rax        ;ppde
+        mov rax, [rcx]       ;pde
+        test rax, 80h
+        jnz @pop
+
+            mov rcx, [rsp + 8]
+
+            mov rax, 0ffffffffffffh
+            and rcx, rax
+            shr rcx, 12
+            shl rcx, 3
+            mov rax, g_PTE_BASE
+            add rax, rcx
+            mov rcx, rax        ;ppte
+                   push rcx
+                   mov rax, [rcx]       ;pte
+                   mov rcx, 08000000000000000h
+                   or  rax, rcx
+                   pop rcx
+           mov [rcx], rax
+@pop:
+        pop rcx
+        pop rax
+        add rsp, 28h
+        ret
+
+@r:
+        xor r9d, r9d
+        xor r8d, r8d
+        call @to
+        add rsp, 28h
+        ret
+@to:
+        sub rsp, 8
+        mov dword ptr [rsp], (NT_BASE+ 1044E8h)and 0ffffffffh
+        mov dword ptr [rsp+4], NT_BASE shr 32
+        ret
+Asm_hook_MmAllocateIndependentPages       Endp
+
+Asm_hook_hMmSetPageProtection       Proc
+        cmp rdx, 8000h
+        jb  @r
+        cmp r8d, 40h
+        jnz @r
+
+        mov r8d, 4
+@r:
+        pop rax
+        mov     [rsp+20h], rbx
+        push    rbp
+        push    rsi
+        push    rdi
+        push    r14
+        push    r15
+        sub     rsp, 100h
+        mov     rax, [NT_BASE + 427F70h]
+        sub rsp, 8
+        mov dword ptr [rsp], (NT_BASE+ 12A75Ah)and 0ffffffffh
+        mov dword ptr [rsp+4], NT_BASE shr 32
+        ret
+Asm_hook_hMmSetPageProtection       Endp
 
 END
