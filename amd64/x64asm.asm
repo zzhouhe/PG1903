@@ -71,6 +71,8 @@ Asm_hook_PageFault	Proc
         mov rax, [rsp+28h]  ;efl
         push rax
         popfq
+        mov rax, [rsp+38h]  ;ss
+        mov ss, ax
         mov rax, [rsp+30h]  ;rsp
         mov [DebugData+40h], rax
         mov rsp, rax
